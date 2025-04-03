@@ -1,0 +1,736 @@
+; Critical Thinking and Educational Inequality Model
+; This model simulates how critical thinking skills interact with educational attainment
+; and socioeconomic inequality, incorporating research findings on developing countries
+; and Thai cultural factors like "saving face" and hierarchical social structures.
+
+globals [
+  ; Inequality and educational metrics
+  income-gini                ; Gini coefficient for income inequality (0-1)
+  education-gini             ; Gini coefficient for educational inequality (0-1)
+  gender-education-gap       ; Gap between male and female education levels
+  avg-years-schooling        ; Average years of schooling across population
+  
+  ; Critical thinking metrics
+  average-critical-thinking  ; Average critical thinking level across professionals
+  
+  ; Decision metrics
+  total-decisions-made       ; Count of all decisions made
+  good-decisions-made        ; Count of good decisions
+  bad-decisions-made         ; Count of poor decisions
+  
+  ; Information metrics
+  true-information-count     ; Count of accurate information
+  false-information-count    ; Count of misinformation
+  
+  ; Thai cultural factors
+  face-saving-influence      ; How much "saving face" affects decisions (0-100)
+  hierarchy-influence        ; Influence of hierarchical relationships (0-100)
+  group-harmony-influence    ; Importance of maintaining social harmony (0-100)
+]
+
+breed [people person]        ; Agents representing people in the society
+breed [information-items information-item]  ; Pieces of information in the environment
+
+people-own [
+  ; Educational attributes based on research findings
+  education-level            ; 0=none, 1=primary, 2=secondary, 3=tertiary
+  years-of-schooling         ; Years of formal education
+  is-female?                 ; Gender indicator for gender inequality analysis
+  income                     ; Individual income level (0-100)
+  
+  ; Critical thinking attributes
+  critical-thinking-skill    ; Level of critical thinking ability (0-100)
+  knowledge                  ; Accumulated knowledge (0-100)
+  
+  ; Decision metrics
+  decisions-made             ; Number of decisions this person has made
+  good-decisions             ; Number of good decisions made
+  bad-decisions              ; Number of poor decisions made
+  information-processed      ; How much information this person has processed
+  
+  ; Thai cultural attributes
+  face-concern               ; Individual concern for saving face (0-100)
+  hierarchy-respect          ; Respect for authority/hierarchy (0-100)
+  group-orientation          ; Preference for group harmony over expression (0-100)
+  status                     ; Social or professional status (0-100)
+]
+
+information-items-own [
+  is-accurate?               ; Whether this information is accurate or not
+  complexity                 ; How complex the information is (1-10)
+  relevance                  ; How relevant the information is to solving problems (1-10)
+]
+
+to setup
+  clear-all
+  reset-ticks
+  
+  ; Set Thai cultural influence factors
+  set face-saving-influence 60  ; Default value
+  set hierarchy-influence 70    ; Default value
+  set group-harmony-influence 65 ; Default value
+  
+  ; Create the environment
+  setup-environment
+  
+  ; Create population with research-based education distribution
+  create-population
+  
+  ; Initial information in the environment
+  create-initial-information
+  
+  ; Initialize global counters and metrics
+  set total-decisions-made 0
+  set good-decisions-made 0
+  set bad-decisions-made 0
+  
+  ; Calculate initial inequality and education metrics
+  calculate-inequality-metrics
+  
+  ; Initialize average critical thinking
+  update-average-critical-thinking
+end
+
+to setup-environment
+  ; Set up environment representing different socioeconomic contexts
+  ask patches [
+    set pcolor white
+  ]
+  
+  ; Create areas that represent different domains
+  ask patches with [pxcor < -10 and pycor > 10] [
+    set pcolor gray + 3  ; Technical/STEM domain
+  ]
+  
+  ask patches with [pxcor > 10 and pycor > 10] [
+    set pcolor gray + 2  ; Communication/Humanities domain
+  ]
+  
+  ask patches with [pxcor < -10 and pycor < -10] [
+    set pcolor gray + 1  ; Problem-solving domain
+  ]
+  
+  ask patches with [pxcor > 10 and pycor < -10] [
+    set pcolor gray  ; Ethical/Social domain
+  ]
+end
+
+to create-population
+  create-people 100 [  ; Default population size
+    set shape "person"
+    setxy random-xcor random-ycor
+    
+    ; Set gender (approximately 50/50 distribution)
+    set is-female? random 2 = 0
+    
+    ; Distribute education levels based on research patterns in developing countries
+    ; Primary education is most common, followed by secondary, with tertiary being least common
+    let education-rand random-float 100
+    
+    ifelse education-rand < 15 [
+      ; No formal education (15% of population)
+      set education-level 0
+      set years-of-schooling 0
+      set color red
+    ][
+      ifelse education-rand < 50 [
+        ; Primary education (35% of population)
+        set education-level 1
+        set years-of-schooling 4 + random 2  ; 4-5 years
+        set color orange
+      ][
+        ifelse education-rand < 80 [
+          ; Secondary education (30% of population)
+          set education-level 2
+          set years-of-schooling 9 + random 3  ; 9-11 years
+          set color green
+        ][
+          ; Tertiary education (20% of population)
+          set education-level 3
+          set years-of-schooling 14 + random 4  ; 14-17 years
+          set color blue
+        ]
+      ]
+    ]
+    
+    ; Apply gender education gap (based on research findings)
+    if is-female? [
+      ; Reduce education years for females to create gender gap
+      ; Gap is larger at higher education levels (based on research)
+      if education-level = 1 [set years-of-schooling max (list 0 (years-of-schooling - 0.5))]
+      if education-level = 2 [set years-of-schooling max (list 0 (years-of-schooling - 1))]
+      if education-level = 3 [set years-of-schooling max (list 0 (years-of-schooling - 1.5))]
+    ]
+    
+    ; Set critical thinking skill based on education level and random variation
+    ; Research shows correlation between education and critical thinking
+    set critical-thinking-skill (education-level * 20) + random 20
+    if critical-thinking-skill > 100 [set critical-thinking-skill 100]
+    
+    ; Set income based on education level with random variation
+    ; Research shows strong correlation between education and income
+    set income (20 * education-level) + random 20
+    
+    ; Apply gender income gap (research shows females earn less even with same education)
+    if is-female? [
+      set income max (list 0 (income * 0.8))  ; 20% gender pay gap
+    ]
+    
+    ; Initialize decision counters
+    set decisions-made 0
+    set good-decisions 0
+    set bad-decisions 0
+    set information-processed 0
+    
+    ; Set size based on status
+    set size 1 + (education-level * 0.2)
+    
+    ; Set Thai cultural attributes with some randomness
+    set face-concern random-normal face-saving-influence 15
+    if face-concern > 100 [set face-concern 100]
+    if face-concern < 0 [set face-concern 0]
+    
+    set hierarchy-respect random-normal hierarchy-influence 15
+    if hierarchy-respect > 100 [set hierarchy-respect 100]
+    if hierarchy-respect < 0 [set hierarchy-respect 0]
+    
+    set group-orientation random-normal group-harmony-influence 15
+    if group-orientation > 100 [set group-orientation 100]
+    if group-orientation < 0 [set group-orientation 0]
+    
+    ; Status is correlated with education and income
+    set status (0.7 * income) + (0.3 * (education-level * 25))
+    if status > 100 [set status 100]
+  ]
+end
+
+to create-initial-information
+  ; Create initial information pieces in the environment
+  create-information-items 50 [  ; Default initial amount
+    set shape "dot"
+    setxy random-xcor random-ycor
+    
+    ; Determine if information is accurate based on misinformation-percentage
+    set is-accurate? random-float 100 > 30  ; Default 30% misinformation
+    
+    ; Set visual properties based on accuracy
+    ifelse is-accurate? [
+      set color green
+      set true-information-count true-information-count + 1
+    ][
+      set color red
+      set false-information-count false-information-count + 1
+    ]
+    
+    ; Set complexity and relevance
+    set complexity 1 + random 10
+    set relevance 1 + random 10
+    
+    ; Adjust size based on complexity
+    set size 0.5 + (complexity / 10)
+  ]
+end
+
+to calculate-inequality-metrics
+  ; Calculate income Gini coefficient
+  ; Higher number = more inequality (0-1 scale)
+  let sorted-incomes sort [income] of people
+  let income-sum sum sorted-incomes
+  let n count people
+  let expected-sum 0
+  let actual-sum 0
+  
+  ; Calculate actual vs expected cumulative income
+  let i 1
+  foreach sorted-incomes [ x ->
+    set expected-sum expected-sum + (i / n)
+    set actual-sum actual-sum + (x / income-sum)
+    set i i + 1
+  ]
+  
+  ; Calculate Gini from area between curves
+  set income-gini 1 - (2 * (actual-sum / n))
+  
+  ; Calculate education Gini coefficient (similar method)
+  let sorted-education sort [years-of-schooling] of people
+  let education-sum sum sorted-education
+  
+  set expected-sum 0
+  set actual-sum 0
+  set i 1
+  
+  foreach sorted-education [ x ->
+    set expected-sum expected-sum + (i / n)
+    set actual-sum actual-sum + (x / education-sum)
+    set i i + 1
+  ]
+  
+  set education-gini 1 - (2 * (actual-sum / n))
+  
+  ; Calculate gender education gap
+  let male-education mean [years-of-schooling] of people with [not is-female?]
+  let female-education mean [years-of-schooling] of people with [is-female?]
+  set gender-education-gap male-education - female-education
+  
+  ; Calculate average years of schooling
+  set avg-years-schooling mean [years-of-schooling] of people
+end
+
+to go
+  ; Main simulation loop
+  if not any? information-items [
+    create-new-information  ; Add more information if none available
+  ]
+  
+  ; Create new information at a certain rate
+  if random-float 100 < 5 [  ; Default rate of 5%
+    create-new-information
+  ]
+  
+  ; People move, gather and evaluate information
+  ask people [
+    ; Movement
+    move-person
+    
+    ; Process information
+    process-information
+    
+    ; Make decisions based on processed information
+    if random-float 100 < 10 [  ; Default rate of 10%
+      make-decision
+    ]
+    
+    ; Potentially improve critical thinking through learning
+    improve-critical-thinking
+    
+    ; Education might increase over time (lifelong learning)
+    if random-float 100 < 1 [  ; 1% chance per tick
+      improve-education
+    ]
+  ]
+  
+  ; Update metrics
+  calculate-inequality-metrics
+  update-average-critical-thinking
+  
+  ; Advance time
+  tick
+  
+  ; Stop simulation after max ticks if specified
+  if ticks >= 500 [  ; Default max time
+    stop
+  ]
+end
+
+to create-new-information
+  ; Add new information to the environment
+  create-information-items 1 [
+    set shape "dot"
+    setxy random-xcor random-ycor
+    
+    ; Determine if information is accurate
+    set is-accurate? random-float 100 > 30  ; Same default as initial setup
+    
+    ; Set visual properties based on accuracy
+    ifelse is-accurate? [
+      set color green
+      set true-information-count true-information-count + 1
+    ][
+      set color red
+      set false-information-count false-information-count + 1
+    ]
+    
+    ; Set complexity and relevance
+    set complexity 1 + random 10
+    set relevance 1 + random 10
+    
+    ; Adjust size based on complexity
+    set size 0.5 + (complexity / 10)
+  ]
+end
+
+to move-person
+  ; People move around to find information
+  right random 90
+  left random 90
+  forward 1
+end
+
+to process-information
+  ; Process information items in the current location
+  let nearby-info information-items in-radius 1.5
+  
+  if any? nearby-info [
+    ; Choose one item to process
+    let target-info one-of nearby-info
+    
+    ; Get source authority level (random for simulation purposes)
+    let source-authority random 100
+    
+    ; Thai cultural factors affecting information processing
+    let willing-to-question? thai-cultural-willingness-to-question source-authority
+    
+    ; Education level affects ability to evaluate information
+    let evaluation-success? false
+    if willing-to-question? [
+      ; Use critical thinking to evaluate the information
+      set evaluation-success? evaluate-information target-info
+    ] else [
+      ; Accept information without questioning (based on authority)
+      set evaluation-success? [is-accurate?] of target-info
+    ]
+    
+    ; If critical thinking was applied successfully
+    if evaluation-success? [
+      ; Knowledge increases if the information was accurately assessed
+      ifelse [is-accurate?] of target-info [
+        set knowledge knowledge + ([relevance] of target-info / 10)
+        if knowledge > 100 [set knowledge 100]
+      ][
+        ; If they correctly identified false information, smaller knowledge gain
+        set knowledge knowledge + 0.2
+        if knowledge > 100 [set knowledge 100]
+      ]
+    ] else [
+      ; If they failed to evaluate correctly, can be misled by false information
+      if not [is-accurate?] of target-info [
+        set knowledge knowledge - ([relevance] of target-info / 20)
+        if knowledge < 0 [set knowledge 0]
+      ]
+    ]
+    
+    ; Increment information processed counter
+    set information-processed information-processed + 1
+    
+    ; Remove the processed information from the environment
+    ask target-info [die]
+  ]
+end
+
+to-report evaluate-information [info-item]
+  ; Returns true if the person correctly evaluates the information
+  let complexity-factor [complexity] of info-item / 10
+  
+  ; Critical thinking skill and education determine ability to correctly evaluate information
+  ; Higher complexity needs more critical thinking and education
+  ; Based on research: Education level affects information evaluation ability
+  let education-bonus education-level * 5
+  let evaluation-threshold critical-thinking-skill + education-bonus - (complexity-factor * 50)
+  
+  ; Adjust for Thai cultural factors
+  ; High face-concern can reduce willingness to critically evaluate
+  let face-penalty (face-concern / 200) * complexity-factor * 50
+  
+  ; High hierarchy-respect can reduce critical evaluation
+  let hierarchy-penalty (hierarchy-respect / 200) * complexity-factor * 50
+  
+  ; Adjust evaluation threshold by cultural factors
+  set evaluation-threshold evaluation-threshold - face-penalty - hierarchy-penalty
+  
+  ; Random factor to simulate the inherent uncertainty in evaluation
+  let random-factor random 20 - 10
+  
+  ; Success if evaluation exceeds threshold plus random factor
+  report evaluation-threshold + random-factor > 50
+end
+
+to-report thai-cultural-willingness-to-question [source-authority]
+  ; Determines if a person is willing to question information
+  ; based on Thai cultural factors and the authority of the source
+  
+  ; Base willingness to question is inversely related to cultural factors
+  let base-willingness 100 - ((face-concern + hierarchy-respect + group-orientation) / 3)
+  
+  ; Authority impact: higher source authority decreases willingness to question
+  let authority-impact source-authority * (hierarchy-respect / 100)
+  
+  ; Status and education impact: higher personal status and education increases willingness to question
+  ; Research shows education (especially tertiary) increases questioning behavior
+  let personal-attribute-impact status / 2 + (education-level * 5)
+  
+  ; Calculate final willingness with some randomness
+  let final-willingness base-willingness - authority-impact + personal-attribute-impact + (random 20 - 10)
+  
+  ; Return true if willing to question, false otherwise
+  report final-willingness > 50
+end
+
+to make-decision
+  ; Make a decision based on accumulated knowledge, critical thinking, and education level
+  ; Research shows education affects decision quality, but differently at different levels
+  
+  ; Check for group decision-making situation
+  let nearby-others people in-radius 3
+  let group-decision? any? nearby-others and count nearby-others > 1
+  
+  ; Base success probability combines knowledge, critical thinking, and education
+  ; Based on research: different education levels affect outcomes differently
+  let education-factor 0
+  
+  ; Based on research findings about different impacts of education levels
+  if education-level = 1 [set education-factor 15]    ; Primary education positive effect (Rehman & Rashidi)
+  if education-level = 2 [set education-factor 10]    ; Secondary education mixed effects (Degu & Singh)
+  if education-level = 3 [                            ; Tertiary education complex effects
+    ifelse income-gini < 0.4 [                        ; When overall inequality is low (Asongu & Odhiambo)
+      set education-factor 20                          ; Tertiary education has more positive effects
+    ][
+      set education-factor 5                           ; Otherwise, may have less positive effects
+    ]
+  ]
+  
+  let success-probability (knowledge * 0.3) + (critical-thinking-skill * 0.5) + education-factor
+  
+  ; Thai cultural adjustments to decision-making
+  if group-decision? [
+    ; Find the highest status person in the group
+    let highest-status-person max-one-of nearby-others [status]
+    let highest-status [status] of highest-status-person
+    
+    ; Check if we're the highest status
+    ifelse status >= highest-status [
+      ; As highest status, face-saving concerns may prevent seeking input
+      let face-saving-penalty (face-concern / 200)
+      set success-probability success-probability * (1 - face-saving-penalty)
+    ][
+      ; As lower status, may defer to authority even if own analysis differs
+      let defer-probability (hierarchy-respect / 100) * 
+                           ((highest-status - status) / 100)
+      
+      if random-float 1 < defer-probability [
+        ; Defer to higher status opinion instead of using own critical thinking
+        set success-probability [success-probability] of highest-status-person
+      ]
+    ]
+    
+    ; Group harmony may prevent raising objections even if you see problems
+    if group-orientation > random 100 [
+      ; Adjust based on group harmony orientation - can reduce success probability
+      ; as important information may not be shared
+      let harmony-penalty (group-orientation / 200)
+      set success-probability success-probability * (1 - harmony-penalty)
+    ]
+  ]
+  
+  ; Gender effect based on research: females show stronger returns from education
+  ; (Awan et al. 2009 - education increases income for both genders, stronger for females)
+  if is-female? [
+    set success-probability success-probability + (education-level * 2)
+  ]
+  
+  ; Add random factor to final decision
+  let decision-outcome random-float 100 < success-probability
+  
+  ; Record the decision outcome
+  set decisions-made decisions-made + 1
+  set total-decisions-made total-decisions-made + 1
+  
+  ifelse decision-outcome [
+    ; Good decision
+    set good-decisions good-decisions + 1
+    set good-decisions-made good-decisions-made + 1
+    set color color + 1  ; Briefly change color to indicate good decision
+  ][
+    ; Bad decision
+    set bad-decisions bad-decisions + 1
+    set bad-decisions-made bad-decisions-made + 1
+    set color color - 1  ; Briefly change color to indicate bad decision
+  ]
+  
+  ; After making decisions, income might change
+  ; Research shows educational decisions affect income
+  if decision-outcome [
+    set income income + random-float 1
+    if income > 100 [set income 100]
+  ] else [
+    set income max (list 0 (income - random-float 0.5))
+  ]
+end
+
+to improve-critical-thinking
+  ; People can improve their critical thinking through experience
+  ; and through learning from mistakes, moderated by Thai cultural factors
+  
+  if information-processed > 0 and random-float 100 < 5 [  ; Default learning rate of 5%
+    ; Basic formula for improvement: Learn from both good and bad decisions
+    let improvement (good-decisions * 0.01) + (bad-decisions * 0.02) + 0.1
+    
+    ; Education level affects learning rate (based on research)
+    set improvement improvement * (1 + (education-level * 0.2))
+    
+    ; Cultural factors affecting learning
+    ; High face-concern may reduce learning from mistakes (to avoid losing face)
+    let face-learning-modifier 1 - (face-concern / 200)
+    
+    ; Adjust learning from bad decisions
+    let adjusted-bad-learning (bad-decisions * 0.02) * face-learning-modifier
+    
+    ; Recalculate improvement with cultural adjustments
+    set improvement (good-decisions * 0.01) + adjusted-bad-learning + 0.1
+    
+    ; Cap the improvement
+    if improvement > 2 [set improvement 2]
+    
+    ; Apply the improvement
+    set critical-thinking-skill critical-thinking-skill + improvement
+    if critical-thinking-skill > 100 [set critical-thinking-skill 100]
+    
+    ; As critical thinking improves, cultural factors may slowly change
+    if random 100 < 10 [ ; 10% chance to adjust cultural factors with learning
+      ; Slight reduction in face-concern as critical thinking increases
+      set face-concern face-concern - 0.1
+      if face-concern < 0 [set face-concern 0]
+      
+      ; Slight reduction in hierarchy-respect with critical thinking (more willing to question)
+      set hierarchy-respect hierarchy-respect - 0.1
+      if hierarchy-respect < 0 [set hierarchy-respect 0]
+    ]
+  ]
+end
+
+to improve-education
+  ; Simulates lifelong learning opportunities
+  ; Based on research showing education can continue improving throughout life
+  
+  ; Lower education levels more likely to improve
+  ; (expanding primary education is most common in developing countries)
+  if education-level = 0 and random-float 100 < 5 [
+    set education-level 1
+    set years-of-schooling years-of-schooling + 1
+    set color orange
+  ]
+  
+  ; Smaller chance for secondary and tertiary education improvements
+  if education-level = 1 and random-float 100 < 3 [
+    set education-level 2
+    set years-of-schooling years-of-schooling + 1
+    set color green
+  ]
+  
+  if education-level = 2 and random-float 100 < 1 [
+    set education-level 3
+    set years-of-schooling years-of-schooling + 1
+    set color blue
+  ]
+  
+  ; At any level, small chance of increasing years without changing level
+  if random-float 100 < 2 [
+    set years-of-schooling years-of-schooling + 0.5
+  ]
+  
+  ; Update status and appearance after education improvements
+  set status (0.7 * income) + (0.3 * (education-level * 25))
+  if status > 100 [set status 100]
+  set size 1 + (education-level * 0.2)
+end
+
+to update-average-critical-thinking
+  ; Calculate the average critical thinking skill across all people
+  ifelse any? people [
+    set average-critical-thinking mean [critical-thinking-skill] of people
+  ][
+    set average-critical-thinking 0
+  ]
+end
+
+; Reporter to calculate the percentage of good decisions
+to-report good-decision-percentage
+  ifelse total-decisions-made > 0 [
+    report (good-decisions-made / total-decisions-made) * 100
+  ][
+    report 0
+  ]
+end
+
+; Reporter to calculate misinformation percentage in the environment
+to-report current-misinformation-percentage
+  let total-info-count true-information-count + false-information-count
+  ifelse total-info-count > 0 [
+    report (false-information-count / total-info-count) * 100
+  ][
+    report 0
+  ]
+end
+
+; Reporter to measure cultural inhibition of critical thinking
+to-report cultural-inhibition-level
+  ; Calculate average of all cultural factors that might inhibit critical thinking
+  ifelse any? people [
+    let avg-face-concern mean [face-concern] of people
+    let avg-hierarchy-respect mean [hierarchy-respect] of people
+    let avg-group-orientation mean [group-orientation] of people
+    report (avg-face-concern + avg-hierarchy-respect + avg-group-orientation) / 3
+  ][
+    report 0
+  ]
+end
+
+; Reporter to calculate the difference in decision quality between high and low status individuals
+to-report status-decision-gap
+  let high-status-pros people with [status >= 70]
+  let low-status-pros people with [status < 30]
+  
+  let high-quality 0
+  let low-quality 0
+  
+  ifelse any? high-status-pros and any? low-status-pros [
+    set high-quality mean [good-decisions / (decisions-made + 0.0001)] of high-status-pros * 100
+    set low-quality mean [good-decisions / (decisions-made + 0.0001)] of low-status-pros * 100
+    report high-quality - low-quality
+  ][
+    report 0
+  ]
+end
+
+; Reporter to calculate educational impact on decision quality for each level
+to-report primary-education-impact
+  let primary-edu people with [education-level = 1]
+  let no-edu people with [education-level = 0]
+  
+  ifelse any? primary-edu and any? no-edu [
+    let primary-quality mean [good-decisions / (decisions-made + 0.0001)] of primary-edu * 100
+    let no-edu-quality mean [good-decisions / (decisions-made + 0.0001)] of no-edu * 100
+    report primary-quality - no-edu-quality
+  ][
+    report 0
+  ]
+end
+
+to-report secondary-education-impact
+  let secondary-edu people with [education-level = 2]
+  let primary-edu people with [education-level = 1]
+  
+  ifelse any? secondary-edu and any? primary-edu [
+    let secondary-quality mean [good-decisions / (decisions-made + 0.0001)] of secondary-edu * 100
+    let primary-quality mean [good-decisions / (decisions-made + 0.0001)] of primary-edu * 100
+    report secondary-quality - primary-quality
+  ][
+    report 0
+  ]
+end
+
+to-report tertiary-education-impact
+  let tertiary-edu people with [education-level = 3]
+  let secondary-edu people with [education-level = 2]
+  
+  ifelse any? tertiary-edu and any? secondary-edu [
+    let tertiary-quality mean [good-decisions / (decisions-made + 0.0001)] of tertiary-edu * 100
+    let secondary-quality mean [good-decisions / (decisions-made + 0.0001)] of secondary-edu * 100
+    report tertiary-quality - secondary-quality
+  ][
+    report 0
+  ]
+end
+
+; Reporter to calculate gender gap in decision quality
+to-report gender-decision-gap
+  let female-people people with [is-female?]
+  let male-people people with [not is-female?]
+  
+  ifelse any? female-people and any? male-people [
+    let female-quality mean [good-decisions / (decisions-made + 0.0001)] of female-people * 100
+    let male-quality mean [good-decisions / (decisions-made + 0.0001)] of male-people * 100
+    report male-quality - female-quality
+  ][
+    report 0
+  ]
+end
