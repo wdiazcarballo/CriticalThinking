@@ -1,1 +1,1 @@
-# CriticalThinking
+# CriticalThinking Awareness Workshop
