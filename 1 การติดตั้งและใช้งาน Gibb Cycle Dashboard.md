@@ -38,10 +38,16 @@
 2. สร้างโปรเจค React ใหม่ด้วยคำสั่ง:
 
 ```bash
-npx create-react-app gibbs-dashboard
+npm create vite@latest gibbs-dashboard -- --template react
 ```
 ```bash
 cd gibbs-dashboard
+```
+```bash
+npm install
+```
+```bash
+npm run dev
 ```
 
 ### 3. ติดตั้ง Dependencies ที่จำเป็น
